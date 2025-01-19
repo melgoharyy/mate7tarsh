@@ -7,8 +7,6 @@ const dotenv = require('dotenv');
 
 
 dotenv.config();
-app.use(express.json());
-
 
 const connection = mysql.createPool({
     host: process.env.DATABASE_HOST,
@@ -85,7 +83,13 @@ app.post('/register', async (req, res) => {
             [name,email,hashedPassword]
         );
 
-        res.status(201).json({ message: 'User registered successfully' });
+        const [users] = await connection.promise().query(
+            `select * from users where id = ?`,
+            [insertId]
+        );
+        const user = users[0];
+        delete user.password;
+        res.status(201).json(user);
 
     } catch (error) {
         console.log(error);
@@ -134,9 +138,9 @@ app.put('/users/:id', async (req, res) => {
 
 app.post('/restaurants', async (req, res) => {
     try {
-        const { name,latitude,longitude,street,city,cuisine} = req.body;
-        if (!name || !latitude || !longitude || !street || !city || !cuisine) {
-            return res.status(400).json({ message: "Name, latitude, longitude, street, city, cuisine are required fields"});
+        const { name,latitude,longitude,street,city,image,cuisine} = req.body;
+        if (!name || !latitude || !longitude || !street || !city || !image || !cuisine) {
+            return res.status(400).json({ message: "Name, latitude, longitude, street, city, image, cuisine are required fields"});
         }
 
         const [restaurants] = await connection.promise().query(
@@ -156,8 +160,8 @@ app.post('/restaurants', async (req, res) => {
         }
 
         const [{insertId}] = await connection.promise().query(
-            `INSERT INTO restaurants (name, latitude,longitude,street,city,cuisine_id) VALUES (?,?,?,?,?,?)`,
-            [name, latitude,longitude,street,city,cuisines[0]?.id]
+            `INSERT INTO restaurants (name, latitude,longitude,street,city,image,cuisine_id) VALUES (?,?,?,?,?,?,?)`,
+            [name, latitude,longitude,street,city,image,cuisines[0]?.id]
         );
         const [createdRestaurant] = await connection.promise().query(
             `select * from restaurants where id = ?`,
@@ -322,8 +326,76 @@ app.get('/search', async (req, res) => {
     }
 
 })
+//favourites api
+app.post('/favorites', async (req, res) => {
+    try {
+        const { user_id, restaurant_id } = req.body;
+        if (!user_id || !restaurant_id) {
+            return res.status(400).json({ message: "user_id and restaurant_id are required" });
+        }
+        if (isNaN(user_id) || isNaN(restaurant_id)) {
+            return res.status(400).json({ message: "Invalid user_id or restaurant_id format" });
+        }
+        const [restaurant] = await connection.promise().query(
+            `SELECT * FROM restaurants WHERE id = ?`,
+            [restaurant_id]
+        );
+        if (!restaurant || restaurant.length === 0) {
+            return res.status(404).json({ message: "Restaurant not found" });
+        }
+        const [existingFavorite] = await connection.promise().query(
+            `SELECT * FROM favorites WHERE user_id = ? AND restaurant_id = ?`,
+            [user_id, restaurant_id]
+        );
+        if (existingFavorite && existingFavorite.length > 0) {
+            return res.status(409).json({ message: "Restaurant is already in favorites" });
+        }
+        await connection.promise().query(
+            `INSERT INTO favorites (user_id, restaurant_id) VALUES (?, ?)`,
+            [user_id, restaurant_id]
+        );
 
+        res.status(201).json({ message: "Restaurant added to favorites" });
+      
+    } catch (error) {
+        console.log(error);
+        res.status(500).json({ message: "Error while adding to favorites" });
+    }
+});
 
+app.get('/favorites', async (req, res) => {
+    try {
+        const { userId } = req.query;
+        if (isNaN(userId)) {
+            return res.status(400).json({ message: "userId is required and must be a number" })
+        }
+        const [users] = await connection.promise().query(
+            `select * from users where id = ?`,
+            [userId]
+        );
+        if (!users || users.length === 0) {
+            return res.status(404).json({ message: "User not found" });
+        }
+
+        const [favoriteRestaurantIds] = await connection.promise().query(
+            `select restaurant_id from favorites where user_id = ?;`,
+            [userId]
+        );
+
+        if (!favoriteRestaurantIds || favoriteRestaurantIds.length === 0) {
+            return res.status(404).json({ message: "No favorites found"});
+        }
+        const mappedFavoriteRestaurantIds = favoriteRestaurantIds.map(item => item.restaurant_id);
+        const [restaurants] = await connection.promise().query(
+            `select * from restaurants where id in (?)`,
+            [mappedFavoriteRestaurantIds]
+        );
+        res.status(200).json(restaurants);
+    } catch (error) {
+        console.log(error);
+        res.status(500).json({ message: "Error while getting favorite restaurants"});
+    }
+})
 
 app.listen(5000)
 
