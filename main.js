@@ -403,7 +403,7 @@ app.get('/favorites', async (req, res) => {
     }
 })
 
-app.get('/', async (req, res) => {
+router.get('/', async (req, res) => {
     res.status(200).json({ message: "Server is running" });
 })
 
