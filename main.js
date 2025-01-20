@@ -401,7 +401,7 @@ app.get('/favorites', async (req, res) => {
     }
 })
 
-router.get('/', async (req, res) => {
+app.get('/', async (req, res) => {
     res.status(200).json({ message: "Server is running" });
 })
 
@@ -493,8 +493,6 @@ app.get('/recommend', async (req, res) => {
 
 app.use("/.netlify/functions/app", router);
 module.exports.handler = serverless(app);
-app.listen(3000)
-
 
 
 
