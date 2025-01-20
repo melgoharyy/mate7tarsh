@@ -491,7 +491,7 @@ app.get('/recommend', async (req, res) => {
     res.status(200).json(currentRestaurants);
 })
 
-app.use("/.netlify/functions/app", router);
+app.use("/.netlify/functions/main", router);
 module.exports.handler = serverless(app);
 
 
