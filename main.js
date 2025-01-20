@@ -1,9 +1,14 @@
 const express = require('express')
 const app = express()
+const router = express.Router();
+const serverless = require("serverless-http");
 const bcrypt = require('bcrypt');
 app.use(express.json());
 const mysql = require('mysql2');
 const dotenv = require('dotenv');
+
+app.use("/.netlify/functions/app", router);
+module.exports.handler = serverless(app);
 
 
 dotenv.config();
@@ -398,7 +403,7 @@ app.get('/favorites', async (req, res) => {
     }
 })
 
-app.get('/health', async (req, res) => {
+app.get('/', async (req, res) => {
     res.status(200).json({ message: "Server is running" });
 })
 
