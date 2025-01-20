@@ -13,6 +13,7 @@ const connection = mysql.createPool({
     user: process.env.DATABASE_USER,
     password: process.env.DATABASE_PASSWORD,
     database: process.env.DATABASE_NAME,
+    port: process.env.DATABASE_PORT
 });
 
 
@@ -138,9 +139,9 @@ app.put('/users/:id', async (req, res) => {
 
 app.post('/restaurants', async (req, res) => {
     try {
-        const { name,latitude,longitude,street,city,image,cuisine} = req.body;
-        if (!name || !latitude || !longitude || !street || !city || !image || !cuisine) {
-            return res.status(400).json({ message: "Name, latitude, longitude, street, city, image, cuisine are required fields"});
+        const { name,latitude,longitude,street,city,image,area,cuisine,allergens} = req.body;
+        if (!name || !latitude || !longitude || !street || !city || !area || !image || !cuisine || !allergens) {
+            return res.status(400).json({ message: "Name, latitude, longitude, street, area, city, image, allergens, cuisine are required fields"});
         }
 
         const [restaurants] = await connection.promise().query(
@@ -160,8 +161,8 @@ app.post('/restaurants', async (req, res) => {
         }
 
         const [{insertId}] = await connection.promise().query(
-            `INSERT INTO restaurants (name, latitude,longitude,street,city,image,cuisine_id) VALUES (?,?,?,?,?,?,?)`,
-            [name, latitude,longitude,street,city,image,cuisines[0]?.id]
+            `INSERT INTO restaurants (name, latitude,longitude,street,city,area,image,allergens,cuisine_id) VALUES (?,?,?,?,?,?,?,?,?)`,
+            [name, latitude,longitude,street,city,area,image,allergens,cuisines[0]?.id]
         );
         const [createdRestaurant] = await connection.promise().query(
             `select * from restaurants where id = ?`,
@@ -397,7 +398,97 @@ app.get('/favorites', async (req, res) => {
     }
 })
 
-app.listen(5000)
+app.get('/health', async (req, res) => {
+    res.status(200).json({ message: "Server is running" });
+})
+
+app.get('/recommend', async (req, res) => {
+    const { userId } = req.query;
+    if (isNaN(userId)) {
+        return res.status(400).json({ message: "userId is required and must be a number" });
+    }
+    const { GoogleGenerativeAI } = require("@google/generative-ai");
+
+    const genAI = new GoogleGenerativeAI(process.env.AI_API_KEY);
+    const model = genAI.getGenerativeModel({
+        model: "gemini-1.5-flash"
+    });
+
+    const [users] = await connection.promise().query(
+        `select * from users where id = ?`,
+        [userId]
+    );
+
+    if (!users || users.length === 0) {
+        return res.status(404).json({ message: "User not found" });
+    }
+
+    const [restaurants] = await connection.promise().query(
+      `select restaurants.*, cuisines.name as cuisine from restaurants
+       inner join cuisines on restaurants.cuisine_id = cuisines.id`
+    );
+
+    console.log(restaurants);
+
+    if (!restaurants || restaurants.length === 0) {
+        return res.status(404).json({ message: "Restaurants not found" });
+    }
+
+    const userPreferences = `
+        - Location: ${users[0].favorite_places}
+        - Cuisine: ${users[0].favorite_food}
+        - Allergens: ${users[0].diseases}`;
+
+    const formatRestaurants = (restaurants) => {
+        return restaurants.map(restaurant => {
+            const { name, area, cuisine, allergens } = restaurant;
+            const allergensText = allergens.trim() ? allergens : 'None';
+            return `${name} - ${area} - Cuisine: ${cuisine} - Allergens: ${allergensText}`;
+        }).join('\n');
+    };
+
+    console.log(userPreferences);
+    console.log(formatRestaurants(restaurants));
+
+
+    const prompt = `
+        The user wants restaurant recommendations based on the following preferences:
+        ${userPreferences}
+        Below is the list of restaurants. Select the ones that match all the user's preferences:
+        ${formatRestaurants(restaurants)} 
+        Return only the restaurant names that match the user's preferences in the following format:
+        "Restaurant Name 1, Restaurant Name 2, Restaurant Name 3" 
+        `;
+
+    const result = await model.generateContent({
+        contents: [
+            {
+                role: 'user',
+                parts: [
+                    {
+                        text: prompt,
+                    }
+                ],
+            }
+        ],
+        generationConfig: {
+            maxOutputTokens: 300,
+            temperature: 0.1,
+        }
+    });
+    console.log(result.response.text());
+
+    const restaurantNames = result.response.text();
+    const arrayOfRestaurants = restaurantNames.trim().split(",").map(item => item.trim());
+    console.log(arrayOfRestaurants);
+    const [currentRestaurants] = await connection.promise().query(
+      `select * from restaurants where name in (?)`,
+      [arrayOfRestaurants]
+    );
+    res.status(200).json(currentRestaurants);
+})
+
+app.listen(3000)
 
 
 
