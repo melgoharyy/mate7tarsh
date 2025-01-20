@@ -7,8 +7,6 @@ app.use(express.json());
 const mysql = require('mysql2');
 const dotenv = require('dotenv');
 
-app.use("/.netlify/functions/app", router);
-module.exports.handler = serverless(app);
 
 
 dotenv.config();
@@ -493,6 +491,8 @@ app.get('/recommend', async (req, res) => {
     res.status(200).json(currentRestaurants);
 })
 
+app.use("/.netlify/functions/app", router);
+module.exports.handler = serverless(app);
 app.listen(3000)
 
 
