@@ -30,7 +30,7 @@ connection.getConnection((err) => {
 
 // User Apis
 
-app.post('/login', async (req, res) => {
+router.post('/login', async (req, res) => {
     try {
         const {email, password} = req.body;
         if (!email || !password) {
@@ -59,7 +59,7 @@ app.post('/login', async (req, res) => {
     }
 })
 
-app.post('/register', async (req, res) => {
+router.post('/register', async (req, res) => {
     try {
         const { name,email, password} = req.body;
         if (!email || !password) {
@@ -101,7 +101,7 @@ app.post('/register', async (req, res) => {
     }
 });
 
-app.put('/users/:id', async (req, res) => {
+router.put('/users/:id', async (req, res) => {
     try{
         const userId = req.params.id;
         const { age, favoriteFood, favoritePlaces, diseases } = req.body;
@@ -140,7 +140,7 @@ app.put('/users/:id', async (req, res) => {
 
 // Restaurant Apis
 
-app.post('/restaurants', async (req, res) => {
+router.post('/restaurants', async (req, res) => {
     try {
         const { name,latitude,longitude,street,city,image,area,cuisine,allergens} = req.body;
         if (!name || !latitude || !longitude || !street || !city || !area || !image || !cuisine || !allergens) {
@@ -180,7 +180,7 @@ app.post('/restaurants', async (req, res) => {
     } 
 });
 
-app.post('/items', async (req, res) => {
+router.post('/items', async (req, res) => {
     try {
         const {name, price, image, restaurant} = req.body;
         const [restaurants] = await connection.promise().query(
@@ -211,7 +211,7 @@ app.post('/items', async (req, res) => {
 
 })
 
-app.post('/restaurants/:id/review', async (req, res) => {
+router.post('/restaurants/:id/review', async (req, res) => {
     try{
         const {id} = req.params;
         const {comment, rating, userId} = req.body
@@ -261,7 +261,7 @@ app.post('/restaurants/:id/review', async (req, res) => {
 
 })
 
-app.get('/restaurants', async (req, res) => {
+router.get('/restaurants', async (req, res) => {
     try {
         const [restaurants] = await connection.promise().query(
             `select * from restaurants`
@@ -277,7 +277,7 @@ app.get('/restaurants', async (req, res) => {
     }
 })
 
-app.get('/restaurants/:id', async (req, res) => {
+router.get('/restaurants/:id', async (req, res) => {
     try {
         const {id} = req.params;
         if (!id) {
@@ -312,7 +312,7 @@ app.get('/restaurants/:id', async (req, res) => {
 
 // Search Api
 
-app.get('/search', async (req, res) => {
+router.get('/search', async (req, res) => {
     try{
         const {name} = req.query;
         const [restaurants] = await connection.promise().query(
@@ -331,7 +331,7 @@ app.get('/search', async (req, res) => {
 
 })
 //favourites api
-app.post('/favorites', async (req, res) => {
+router.post('/favorites', async (req, res) => {
     try {
         const { user_id, restaurant_id } = req.body;
         if (!user_id || !restaurant_id) {
@@ -367,7 +367,7 @@ app.post('/favorites', async (req, res) => {
     }
 });
 
-app.get('/favorites', async (req, res) => {
+router.get('/favorites', async (req, res) => {
     try {
         const { userId } = req.query;
         if (isNaN(userId)) {
@@ -404,7 +404,6 @@ app.get('/favorites', async (req, res) => {
 router.get('/', async (req, res) => {
     res.status(200).json({ message: "Server is running" });
 })
-
 router.get('/recommend', async (req, res) => {
     const { userId } = req.query;
     if (isNaN(userId)) {
