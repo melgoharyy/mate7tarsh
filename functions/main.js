@@ -1,12 +1,12 @@
 const express = require('express')
 const app = express()
-const router = express.Router();
 const serverless = require("serverless-http");
-const bcrypt = require('bcrypt');
+const bcrypt = require('bcryptjs');
 app.use(express.json());
 const mysql = require('mysql2');
 const dotenv = require('dotenv');
 
+const router = express.Router();
 
 
 dotenv.config();
@@ -405,7 +405,7 @@ router.get('/', async (req, res) => {
     res.status(200).json({ message: "Server is running" });
 })
 
-app.get('/recommend', async (req, res) => {
+router.get('/recommend', async (req, res) => {
     const { userId } = req.query;
     if (isNaN(userId)) {
         return res.status(400).json({ message: "userId is required and must be a number" });
@@ -491,7 +491,8 @@ app.get('/recommend', async (req, res) => {
     res.status(200).json(currentRestaurants);
 })
 
-app.use("/.netlify/functions/app/", router);
+app.use("/.netlify/functions/main", router);
+
 module.exports.handler = serverless(app);
 
 
